@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prime Number Checker</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 60px auto;
+            padding: 0 16px;
+        }
+
+        .form-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-card h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .input-row button {
+            padding: 10px 20px;
+            font-size: 14px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .input-row button:hover {
+            background-color: #1557b0;
+        }
+
+        #result {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 15px;
+            display: none;
+        }
+
+        #result.prime {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        #result.not-prime {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .list-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .list-card h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        #historyList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #historyList li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        #historyList li:last-child {
+            border-bottom: none;
+        }
+
+        .badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge.prime {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge.not-prime {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* ข้อความตอนยังไม่มีรายการ */
+        #emptyMsg {
+            color: #888;
+            font-size: 14px;
+        }
+
+        #clearBtn {
+            margin-top: 16px;
+            padding: 8px 16px;
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            color: #666;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #clearBtn:hover {
+            border-color: #e53e3e;
+            color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- ส่วนกรอกตัวเลข -->
+        <div class="form-card">
+            <h2>ตรวจสอบจำนวนเฉพาะ</h2>
+            <div class="input-row">
+                <input type="number" id="numberInput" placeholder="กรอกตัวเลข เช่น 17" />
+                <button onclick="checkNumber()">ตรวจสอบ</button>
+            </div>
+            <div id="result"></div>
+        </div>
+
+        <!-- ส่วนแสดงรายการที่ผ่านมา -->
+        <div class="list-card">
+            <h3>ประวัติการตรวจสอบ</h3>
+            <p id="emptyMsg">ยังไม่มีรายการ</p>
+            <ul id="historyList"></ul>
+            <button id="clearBtn" onclick="clearHistory()" style="display:none">ล้างรายการ</button>
+        </div>
+
+    </div>
+
+
+    <script>
+        const API_URL = "http://localhost:5259/api/prime/check";
+
+        // key สำหรับ localStorage
+        const STORAGE_KEY = "prime_history";
+
+        window.onload = function () {
+            renderHistory();
+        }
+
+        async function checkNumber() {
+            const input = document.getElementById("numberInput");
+            const resultBox = document.getElementById("result");
+
+            const num = parseInt(input.value);
+
+            // เช็คว่ากรอกมาหรือยัง
+            if (input.value === "" || isNaN(num)) {
+                alert("กรุณากรอกตัวเลขก่อน");
+                return;
+            }
+
+            try {
+                // ส่งไป API
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ number: num })
+                });
+
+                const data = await response.json();
+
+                // แสดงผลลัพธ์
+                resultBox.style.display = "block";
+                resultBox.textContent = data.message;
+                resultBox.className = data.isPrime ? "prime" : "not-prime";
+
+                // บันทึกลง localStorage
+                saveToHistory(num, data.isPrime);
+                renderHistory();
+
+                input.value = "";
+
+            } catch (error) {
+                resultBox.style.display = "block";
+                resultBox.className = "not-prime";
+                resultBox.textContent = "เชื่อมต่อ API ไม่ได้ กรุณาเปิด Backend ก่อน";
+            }
+        }
+
+
+        // บันทึกผลลัพธ์ใหม่เข้า localStorage
+        function saveToHistory(number, isPrime) {
+            let history = getHistory();
+
+            // เพิ่มรายการใหม่ไว้บนสุด
+            history.unshift({ number, isPrime });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        }
+
+
+        // ดึงประวัติจาก localStorage (ถ้าไม่มีคืน array ว่าง)
+        function getHistory() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            return saved ? JSON.parse(saved) : [];
+        }
+
+        function renderHistory() {
+            const history = getHistory();
+            const list = document.getElementById("historyList");
+            const emptyMsg = document.getElementById("emptyMsg");
+            const clearBtn = document.getElementById("clearBtn");
+
+            list.innerHTML = "";
+
+            if (history.length === 0) {
+                emptyMsg.style.display = "block";
+                clearBtn.style.display = "none";
+                return;
+            }
+
+            emptyMsg.style.display = "none";
+            clearBtn.style.display = "inline-block";
+
+            history.forEach(function (item) {
+                const li = document.createElement("li");
+
+                const badgeClass = item.isPrime ? "prime" : "not-prime";
+                const badgeText  = item.isPrime ? "จำนวนเฉพาะ" : "ไม่ใช่จำนวนเฉพาะ";
+
+                li.innerHTML = `
+                    <span>${item.number}</span>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                `;
+
+                list.appendChild(li);
+            });
+        }
+
+        function clearHistory() {
+            localStorage.removeItem(STORAGE_KEY);
+            renderHistory();
+            const resultBox = document.getElementById("result");
+            resultBox.style.display = "none";
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById("numberInput").addEventListener("keydown", function (e) {
+                if (e.key === "Enter") checkNumber();
+            });
+        });
+    </script>
+
+</body>
+</html>
